@@ -30,17 +30,26 @@ async def synth_to_bytes(text: str) -> bytes:
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        # Read ?text=... from the query string
-        query = parse_qs(urlparse(self.path).query)
-        text = query.get("text", ["Hello from edge-tts on Vercel"])[0]
+        try:
+            # Read ?text=... from the query string
+            query = parse_qs(urlparse(self.path).query)
+            text = query.get("text", ["Hello from edge-tts on Vercel"])[0]
 
-        # Run the async TTS code
-        audio = asyncio.run(synth_to_bytes(text))
+            # Run the async TTS code
+            audio = asyncio.run(synth_to_bytes(text))
 
-        self.send_response(200)
-        self.send_header("Content-Type", "audio/mpeg")
-        self.send_header("Content-Length", str(len(audio)))
-        # Optional CORS if you call this from another origin
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(audio)
+            self.send_response(200)
+            self.send_header("Content-Type", "audio/mpeg")
+            self.send_header("Content-Length", str(len(audio)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(audio)
+
+        except Exception as e:
+            # Return the error so you can see it in the browser / logs
+            err_msg = f"Error in tts function: {type(e).__name__}: {e}"
+            self.send_response(500)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(err_msg.encode("utf-8"))
