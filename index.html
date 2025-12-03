@@ -3,106 +3,610 @@
 <head>
   <meta charset="UTF-8" />
   <title>Line-by-Line TTS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body {
-      font-family: sans-serif;
-      max-width: 800px;
-      margin: 20px auto;
-      padding: 0 10px;
+    :root {
+      --bg: #0f172a;
+      --bg-soft: #111827;
+      --card-bg: #ffffff;
+      --accent: #6366f1;
+      --accent-soft: rgba(99, 102, 241, 0.15);
+      --accent-strong: #4f46e5;
+      --text-main: #0f172a;
+      --text-muted: #6b7280;
+      --border-subtle: #e5e7eb;
+      --danger: #ef4444;
+      --radius-lg: 14px;
+      --radius-pill: 999px;
+      --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.35);
+      --shadow-subtle: 0 1px 2px rgba(15, 23, 42, 0.08);
     }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background:
+        radial-gradient(circle at top left, #4f46e5 0, transparent 55%),
+        radial-gradient(circle at bottom right, #ec4899 0, transparent 55%),
+        var(--bg);
+      color: var(--text-main);
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .app-shell {
+      width: 100%;
+      max-width: 1040px;
+      background: linear-gradient(145deg, #ffffff, #f9fafb);
+      border-radius: 24px;
+      padding: 22px 22px 24px;
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    @media (min-width: 768px) {
+      .app-shell {
+        padding: 26px 28px 28px;
+        gap: 24px;
+      }
+    }
+
+    .header {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+      padding-bottom: 14px;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .title-main {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pill-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.3);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    h1 span.highlight {
+      background: linear-gradient(120deg, #4f46e5, #ec4899);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .subtitle {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .shortcut-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .keycap {
+      border-radius: 6px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      padding: 2px 5px;
+      font-size: 0.7rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", "Courier New", monospace;
+      background: #f9fafb;
+      box-shadow: var(--shadow-subtle);
+    }
+
+    .layout {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    @media (min-width: 900px) {
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
+        align-items: flex-start;
+        gap: 18px;
+      }
+    }
+
+    .panel {
+      background: #ffffff;
+      border-radius: var(--radius-lg);
+      padding: 14px 14px 16px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    @media (min-width: 768px) {
+      .panel {
+        padding: 14px 16px 18px;
+      }
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .panel-title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .panel-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .panel-caption {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .badge-soft {
+      border-radius: var(--radius-pill);
+      background: #f3f4ff;
+      color: var(--accent-strong);
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #111827;
+      display: block;
+      margin-bottom: 4px;
+    }
+
     textarea {
       width: 100%;
-      height: 200px;
-      padding: 8px;
-      box-sizing: border-box;
+      min-height: 190px;
+      max-height: 380px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid #d1d5db;
+      background: #f9fafb;
       font-family: inherit;
-      font-size: 14px;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      resize: vertical;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease,
+        background-color 0.15s ease;
     }
-    button {
-      margin-top: 10px;
-      padding: 8px 16px;
-      font-size: 14px;
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent-strong);
+      box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.7),
+        0 0 0 6px rgba(79, 70, 229, 0.15);
+      background: #ffffff;
+    }
+
+    textarea::placeholder {
+      color: #9ca3af;
+    }
+
+    .help-text {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    .stack-md {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .controls-left,
+    .controls-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 7px 15px;
+      font-size: 0.85rem;
+      font-weight: 600;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform 0.08s ease, box-shadow 0.12s ease,
+        background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+      white-space: nowrap;
+      user-select: none;
     }
+
+    .btn-primary {
+      background: radial-gradient(circle at top left, #6366f1, #4f46e5);
+      color: #ffffff;
+      box-shadow: 0 9px 18px rgba(79, 70, 229, 0.35);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 30px rgba(79, 70, 229, 0.45);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+      box-shadow: 0 7px 16px rgba(79, 70, 229, 0.3);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      padding-inline: 12px;
+    }
+
+    .btn-ghost:hover {
+      background: #f9fafb;
+      color: #111827;
+      border-color: #9ca3af;
+    }
+
+    .btn-pill-soft {
+      background: #f3f4ff;
+      color: var(--accent-strong);
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(129, 140, 248, 0.2);
+      padding-inline: 10px;
+      font-size: 0.75rem;
+      box-shadow: none;
+    }
+
+    .btn-pill-soft:hover {
+      background: #e0e7ff;
+    }
+
+    .btn-sm {
+      padding-block: 4px;
+      padding-inline: 9px;
+      font-size: 0.75rem;
+      border-radius: 999px;
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: default;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .counter {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: #f9fafb;
+      border: 1px solid rgba(229, 231, 235, 0.9);
+    }
+
+    .counter-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-strong);
+    }
+
+    .results-card {
+      background: #ffffff;
+      border-radius: var(--radius-lg);
+      padding: 14px 14px 16px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    @media (min-width: 768px) {
+      .results-card {
+        padding: 14px 16px 18px;
+      }
+    }
+
+    .results-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .results-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .results-count {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    #results {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 6px;
+      max-height: 420px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .results-empty {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .results-pro-tip {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
     .line-block {
-      margin-top: 15px;
-      padding: 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 10px 11px 11px;
+      background: #f9fafb;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
     }
+
+    .line-block::before {
+      content: "";
+      position: absolute;
+      inset-block: 7px;
+      left: 0;
+      width: 3px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #4f46e5, #ec4899);
+    }
+
+    .line-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-left: 4px;
+    }
+
+    .line-title {
+      font-weight: 600;
+      font-size: 0.82rem;
+      color: #111827;
+    }
+
+    .voice-badge {
+      border-radius: var(--radius-pill);
+      background: #eef2ff;
+      color: var(--accent-strong);
+      padding: 4px 8px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      max-width: 60%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     .line-text {
-      font-weight: bold;
-      margin-bottom: 5px;
+      margin: 0;
+      font-size: 0.84rem;
+      color: #111827;
       word-break: break-word;
+      padding-left: 4px;
     }
+
+    .line-meta {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      padding-left: 4px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    audio {
+      width: 100%;
+      margin-top: 2px;
+    }
+
+    .link-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-left: 4px;
+      margin-top: 2px;
+      flex-wrap: wrap;
+    }
+
     .audio-link {
-      font-size: 12px;
-      display: block;
-      margin-top: 4px;
+      font-size: 0.75rem;
+      text-decoration: none;
+      color: #4b5563;
       word-break: break-all;
+    }
+
+    .audio-link:hover {
+      text-decoration: underline;
+      color: var(--accent-strong);
+    }
+
+    @media (max-width: 540px) {
+      .app-shell {
+        border-radius: 18px;
+        padding: 16px 12px 18px;
+      }
+
+      .line-block {
+        padding-inline: 9px;
+      }
+
+      .link-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      textarea {
+        min-height: 160px;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>Text to Speech (One Line per Audio)</h1>
+  <main class="app-shell">
+    <header class="header">
+      <div class="title-row">
+        <div class="title-main">
+          <div class="pill">
+            <span class="pill-dot"></span>
+            Line-by-Line TTS
+          </div>
+          <h1>
+            <span>Text to Speech</span>
+            <span class="highlight">Generator</span>
+          </h1>
+        </div>
+        <div class="shortcut-hint">
+          <span>Generate with</span>
+          <span class="keycap">Ctrl</span> +
+          <span class="keycap">Enter</span>
+        </div>
+      </div>
+      <p class="subtitle">
+        Type or paste your script—one sentence per line. Each non-empty line becomes its own audio clip.
+        Optionally assign a different voice for each line.
+      </p>
+    </header>
 
-  <p>Write one sentence per line. Each line will be converted into a separate audio file.</p>
+    <section class="layout">
+      <!-- TEXT INPUT PANEL -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <div class="panel-title">Script</div>
+            <div class="panel-caption">
+              Empty lines are ignored. Keep one sentence per line for best results.
+            </div>
+          </div>
+          <div class="badge-soft">Required</div>
+        </div>
 
-  <textarea id="text-input" placeholder="Type or paste text here&#10;Each line will become a separate audio..."></textarea>
-  <br />
-  <button id="generate-btn">Generate Audio</button>
+        <div class="stack-md">
+          <div>
+            <label for="text-input">Text</label>
+            <textarea
+              id="text-input"
+              spellcheck="true"
+              placeholder="Example:
+Hello, welcome to our demo.
+This is line two, with a different idea.
+And this is line three, which becomes a third audio clip."
+            ></textarea>
+            <p class="help-text">
+              Each non-empty line will be sent to the API as
+              <code>?text=your+line</code>.
+            </p>
+          </div>
+        </div>
+      </section>
 
-  <div id="results"></div>
-
-  <script>
-    const ENDPOINT_BASE = "https://verceledge-fawn.vercel.app/api/tts?text=";
-
-    document.getElementById("generate-btn").addEventListener("click", () => {
-      const textarea = document.getElementById("text-input");
-      const resultsDiv = document.getElementById("results");
-
-      // Clear old results
-      resultsDiv.innerHTML = "";
-
-      // Split into lines, trim, and remove empty lines
-      const lines = textarea.value
-        .split(/\r?\n/)
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
-
-      if (lines.length === 0) {
-        resultsDiv.textContent = "No lines to convert.";
-        return;
-      }
-
-      lines.forEach((line, index) => {
-        const encodedText = encodeURIComponent(line);
-        const audioUrl = ENDPOINT_BASE + encodedText;
-
-        // Create container for this line's result
-        const block = document.createElement("div");
-        block.className = "line-block";
-
-        const lineText = document.createElement("div");
-        lineText.className = "line-text";
-        lineText.textContent = `Line ${index + 1}: ${line}`;
-
-        const audio = document.createElement("audio");
-        audio.controls = true;
-        audio.src = audioUrl;
-
-        const link = document.createElement("a");
-        link.className = "audio-link";
-        link.href = audioUrl;
-        link.target = "_blank";
-        link.textContent = audioUrl;
-
-        block.appendChild(lineText);
-        block.appendChild(audio);
-        block.appendChild(link);
-        resultsDiv.appendChild(block);
-      });
-    });
-  </script>
-</body>
-</html>
+      <!-- VOICE INPUT PANEL -->
+      <section class="panel">
+        <div class="panel-header">
+          <div class="panel-title-wrap">
+            <div class="panel-title">Voices per Line</div>
+            <div class="panel-caption">
+              Optional. Voice on line&nbsp;1 matches text line&nbsp;1, and so on.
+            </div>
+          </div>
+          <div class="badge-soft">Optional</div>
