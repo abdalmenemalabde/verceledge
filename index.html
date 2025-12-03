@@ -610,3 +610,304 @@ And this is line three, which becomes a third audio clip."
             </div>
           </div>
           <div class="badge-soft">Optional</div>
+        </div>
+
+        <div class="stack-md">
+          <div>
+            <label for="voice-input">Voice (one per line)</label>
+            <textarea
+              id="voice-input"
+              placeholder="Example:
+alloy
+alloy
+nova"
+            ></textarea>
+            <p class="help-text">
+              If a voice is provided, the URL will include
+              <code>&amp;voice=thatValue</code>. Leave lines blank to use the
+              API’s default voice.
+            </p>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- CONTROLS -->
+    <section class="controls-row">
+      <div class="controls-left">
+        <button id="generate-btn" class="btn btn-primary">
+          ▶ Generate audio
+        </button>
+        <button id="play-all-btn" class="btn btn-pill-soft btn-sm" disabled>
+          ► Play all lines
+        </button>
+        <button id="clear-btn" class="btn btn-ghost btn-sm">
+          Clear
+        </button>
+      </div>
+
+      <div class="controls-right">
+        <div class="counter">
+          <span class="counter-dot"></span>
+          <span><span id="line-count">0</span> lines</span>
+        </div>
+        <div class="counter">
+          <span>Chars</span>
+          <strong id="char-count">0</strong>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESULTS -->
+    <section class="results-card" id="results-section">
+      <div class="results-header-row">
+        <div class="results-title">
+          Generated audio
+          <span class="results-count"
+            >(appears after you click “Generate”)</span
+          >
+        </div>
+      </div>
+      <p class="results-pro-tip">
+        Pro tip: you can open the raw audio URL in a new tab or press “Copy URL”
+        to use it in your own player.
+      </p>
+      <div id="results">
+        <p class="results-empty">
+          No audio yet. Paste some text on the left, optionally add per-line
+          voices on the right, then click <strong>Generate audio</strong>.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Base endpoint without query string; we’ll construct ?text= & optional &voice=
+    const ENDPOINT_BASE = "https://verceledge-fawn.vercel.app/api/tts";
+
+    const textInput = document.getElementById("text-input");
+    const voiceInput = document.getElementById("voice-input");
+    const generateBtn = document.getElementById("generate-btn");
+    const clearBtn = document.getElementById("clear-btn");
+    const playAllBtn = document.getElementById("play-all-btn");
+    const resultsDiv = document.getElementById("results");
+    const resultsSection = document.getElementById("results-section");
+    const lineCountEl = document.getElementById("line-count");
+    const charCountEl = document.getElementById("char-count");
+
+    function getLinePairs() {
+      const textLinesRaw = textInput.value.split(/\r?\n/);
+      const voiceLinesRaw = voiceInput.value.split(/\r?\n/);
+
+      const pairs = [];
+
+      textLinesRaw.forEach((line, index) => {
+        const trimmedText = line.trim();
+        if (!trimmedText) return; // ignore empty text lines
+
+        const voice = (voiceLinesRaw[index] || "").trim();
+        pairs.push({
+          text: trimmedText,
+          voice,
+          originalIndex: index + 1, // for reference if needed
+        });
+      });
+
+      return pairs;
+    }
+
+    function updateStats() {
+      const pairs = getLinePairs();
+      const charCount = textInput.value.length;
+
+      lineCountEl.textContent = pairs.length;
+      charCountEl.textContent = charCount;
+
+      generateBtn.disabled = pairs.length === 0;
+      playAllBtn.disabled = resultsDiv.querySelectorAll("audio").length === 0;
+    }
+
+    function buildAudioUrl(text, voice) {
+      const params = new URLSearchParams();
+      // text as plain string; URLSearchParams handles encoding
+      params.set("text", text);
+      if (voice) {
+        params.set("voice", voice);
+      }
+      return `${ENDPOINT_BASE}?${params.toString()}`;
+    }
+
+    function renderEmptyResults(message) {
+      resultsDiv.innerHTML = "";
+      const p = document.createElement("p");
+      p.className = "results-empty";
+      p.textContent = message;
+      resultsDiv.appendChild(p);
+    }
+
+    function handleGenerate() {
+      const pairs = getLinePairs();
+      resultsDiv.innerHTML = "";
+
+      if (pairs.length === 0) {
+        renderEmptyResults("No non-empty lines to convert.");
+        updateStats();
+        return;
+      }
+
+      pairs.forEach((pair, displayIndex) => {
+        const audioUrl = buildAudioUrl(pair.text, pair.voice);
+
+        const block = document.createElement("article");
+        block.className = "line-block";
+
+        const headerRow = document.createElement("div");
+        headerRow.className = "line-header";
+
+        const lineTitle = document.createElement("div");
+        lineTitle.className = "line-title";
+        lineTitle.textContent = `Line ${displayIndex + 1}`;
+
+        headerRow.appendChild(lineTitle);
+
+        if (pair.voice) {
+          const voiceBadge = document.createElement("span");
+          voiceBadge.className = "voice-badge";
+          voiceBadge.textContent = pair.voice;
+          headerRow.appendChild(voiceBadge);
+        }
+
+        const lineText = document.createElement("p");
+        lineText.className = "line-text";
+        lineText.textContent = pair.text;
+
+        const lineMeta = document.createElement("div");
+        lineMeta.className = "line-meta";
+        const idxSpan = document.createElement("span");
+        idxSpan.textContent = `Source line ${pair.originalIndex}`;
+        lineMeta.appendChild(idxSpan);
+
+        const audio = document.createElement("audio");
+        audio.controls = true;
+        audio.src = audioUrl;
+
+        const linkRow = document.createElement("div");
+        linkRow.className = "link-row";
+
+        const link = document.createElement("a");
+        link.className = "audio-link";
+        link.href = audioUrl;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = audioUrl;
+
+        const copyBtn = document.createElement("button");
+        copyBtn.type = "button";
+        copyBtn.className = "btn btn-pill-soft btn-sm";
+        copyBtn.textContent = "Copy URL";
+
+        copyBtn.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(audioUrl);
+            const original = copyBtn.textContent;
+            copyBtn.textContent = "Copied!";
+            copyBtn.disabled = true;
+            setTimeout(() => {
+              copyBtn.textContent = original;
+              copyBtn.disabled = false;
+            }, 1400);
+          } catch (err) {
+            alert("Clipboard not available. Please copy the URL manually.");
+          }
+        });
+
+        linkRow.appendChild(link);
+        linkRow.appendChild(copyBtn);
+
+        block.appendChild(headerRow);
+        block.appendChild(lineText);
+        block.appendChild(lineMeta);
+        block.appendChild(audio);
+        block.appendChild(linkRow);
+
+        resultsDiv.appendChild(block);
+      });
+
+      playAllBtn.disabled = false;
+    }
+
+    async function playAllSequentially() {
+      const audioElements = Array.from(resultsDiv.querySelectorAll("audio"));
+      if (!audioElements.length) return;
+
+      playAllBtn.disabled = true;
+      const originalText = playAllBtn.textContent;
+      playAllBtn.textContent = "Playing…";
+
+      for (const audio of audioElements) {
+        try {
+          audio.currentTime = 0;
+          await audio.play();
+
+          await new Promise((resolve) => {
+            const onDone = () => {
+              audio.removeEventListener("ended", onDone);
+              audio.removeEventListener("error", onDone);
+              resolve();
+            };
+            audio.addEventListener("ended", onDone, { once: true });
+            audio.addEventListener("error", onDone, { once: true });
+          });
+        } catch (err) {
+          // Skip this audio on error and continue
+          continue;
+        }
+      }
+
+      playAllBtn.disabled = false;
+      playAllBtn.textContent = originalText;
+    }
+
+    function handleClear() {
+      textInput.value = "";
+      voiceInput.value = "";
+      renderEmptyResults(
+        "Cleared. Paste new text, optionally add voices, then Generate again."
+      );
+      updateStats();
+    }
+
+    // Event listeners
+    textInput.addEventListener("input", updateStats);
+    voiceInput.addEventListener("input", updateStats);
+
+    textInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        handleGenerate();
+        updateStats();
+      }
+    });
+
+    voiceInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        handleGenerate();
+        updateStats();
+      }
+    });
+
+    generateBtn.addEventListener("click", () => {
+      handleGenerate();
+      updateStats();
+    });
+
+    clearBtn.addEventListener("click", handleClear);
+
+    playAllBtn.addEventListener("click", playAllSequentially);
+
+    // Initial stats
+    updateStats();
+  </script>
+</body>
+</html>
