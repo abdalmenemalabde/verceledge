@@ -7,8 +7,8 @@ import os
 import edge_tts
 
 
-async def synth_to_bytes(text: str) -> bytes:
-    voice = "en-US-JennyNeural"  # pick any valid Edge voice
+async def synth_to_bytes(text: str, voice: str) -> bytes:
+    # Use the voice passed from the handler
     communicate = edge_tts.Communicate(text, voice)
 
     # Save to a temp file, then read bytes back
@@ -31,12 +31,17 @@ async def synth_to_bytes(text: str) -> bytes:
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
-            # Read ?text=... from the query string
+            # Parse query string
             query = parse_qs(urlparse(self.path).query)
+
+            # Text param (default if missing)
             text = query.get("text", ["Hello from edge-tts on Vercel"])[0]
 
+            # Voice param (default to Arabic voice if missing/empty)
+            voice = query.get("voice", ["ar-AE-HamdanNeural"])[0] or "ar-AE-HamdanNeural"
+
             # Run the async TTS code
-            audio = asyncio.run(synth_to_bytes(text))
+            audio = asyncio.run(synth_to_bytes(text, voice))
 
             self.send_response(200)
             self.send_header("Content-Type", "audio/mpeg")
