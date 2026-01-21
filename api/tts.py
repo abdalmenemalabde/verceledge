@@ -1,60 +1,108 @@
+from __future__ import annotations
+
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import asyncio
-import tempfile
-import os
+import threading
 
 import edge_tts
 
 
+DEFAULT_TEXT = "Hello from edge-tts on Vercel"
+DEFAULT_VOICE = "ar-AE-HamdanNeural"
+
+
 async def synth_to_bytes(text: str, voice: str) -> bytes:
-    # Use the voice passed from the handler
+    """
+    Synthesize speech and return MP3 bytes (no temp files, no proxy).
+    """
     communicate = edge_tts.Communicate(text, voice)
 
-    # Save to a temp file, then read bytes back
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-        tmp_path = f.name
+    audio = bytearray()
+    async for chunk in communicate.stream():
+        if chunk.get("type") == "audio":
+            audio.extend(chunk["data"])
 
+    return bytes(audio)
+
+
+def run_coro(coro):
+    """
+    Run an async coroutine safely.
+
+    In normal http.server usage there is no running loop, so asyncio.run() works.
+    This helper also handles the edge case where an event loop is already running.
+    """
     try:
-        await communicate.save(tmp_path)
-        with open(tmp_path, "rb") as f:
-            audio = f.read()
-    finally:
-        try:
-            os.remove(tmp_path)
-        except OSError:
-            pass
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
 
-    return audio
+    # If there's already a running loop in this thread, run the coroutine in a new thread/loop.
+    result = {"value": None, "error": None}
+
+    def _runner():
+        loop = asyncio.new_event_loop()
+        try:
+            asyncio.set_event_loop(loop)
+            result["value"] = loop.run_until_complete(coro)
+        except Exception as e:
+            result["error"] = e
+        finally:
+            loop.close()
+
+    t = threading.Thread(target=_runner, daemon=True)
+    t.start()
+    t.join()
+
+    if result["error"] is not None:
+        raise result["error"]
+    return result["value"]
 
 
 class handler(BaseHTTPRequestHandler):
+    def _send_cors(self):
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self._send_cors()
+        self.end_headers()
+
     def do_GET(self):
         try:
             # Parse query string
-            query = parse_qs(urlparse(self.path).query)
+            query = parse_qs(urlparse(self.path).query, keep_blank_values=True)
 
             # Text param (default if missing)
-            text = query.get("text", ["Hello from edge-tts on Vercel"])[0]
+            text = (query.get("text", [DEFAULT_TEXT])[0] or DEFAULT_TEXT).strip()
 
-            # Voice param (default to Arabic voice if missing/empty)
-            voice = query.get("voice", ["ar-AE-HamdanNeural"])[0] or "ar-AE-HamdanNeural"
+            # Voice param (default if missing/empty)
+            voice = (query.get("voice", [DEFAULT_VOICE])[0] or DEFAULT_VOICE).strip()
 
-            # Run the async TTS code
-            audio = asyncio.run(synth_to_bytes(text, voice))
+            # (Optional) basic guard to prevent huge inputs
+            max_chars = 8000
+            if len(text) > max_chars:
+                raise ValueError(f"text is too long ({len(text)} chars). Max is {max_chars}.")
+
+            # Run the async TTS code (NO PROXY — uses server's own network)
+            audio = run_coro(synth_to_bytes(text, voice))
 
             self.send_response(200)
             self.send_header("Content-Type", "audio/mpeg")
             self.send_header("Content-Length", str(len(audio)))
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+            self._send_cors()
             self.end_headers()
             self.wfile.write(audio)
 
         except Exception as e:
-            # Return the error so you can see it in the browser / logs
             err_msg = f"Error in tts function: {type(e).__name__}: {e}"
             self.send_response(500)
             self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+            self._send_cors()
             self.end_headers()
             self.wfile.write(err_msg.encode("utf-8"))
